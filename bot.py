@@ -24,45 +24,48 @@ def send_telegram_alert(message):
         print(f"Gagal kirim pesan: {e}")
 
 def scan_loop():
-    """Loop scanner yang berjalan di background thread"""
+    """Loop scanner yang berjalan di background thread dengan aman dari NoneType"""
     print("🤖 Bot Scanner Meme Coin Berjalan...")
     processed_pairs = set()
     while True:
         try:
             url = "https://api.dexscreener.com/latest/dex/tokens/solana"
-            response = requests.get(url)
-            data = response.json()
-            pairs = data.get("pairs", [])
-            
-            for pair in pairs:
-                address = pair.get("pairAddress")
-                if address in processed_pairs:
-                    continue
-                
-                name = pair.get("baseToken", {}).get("name", "Unknown")
-                symbol = pair.get("baseToken", {}).get("symbol", "UNKNOWN")
-                liquidity = pair.get("liquidity", {}).get("usd", 0)
-                h6_volume = pair.get("volume", {}).get("h6", 0)
-                ca = pair.get("baseToken", {}).get("address", "")
-                
-                if liquidity >= 10000 and h1_volume >= 20000:
-                    msg = (
-                        f"🚨 *POTENSI TOKEN BARU TERDETEKSI* 🚨\n\n"
-                        f"🪙 *Nama:* {name} ({symbol})\n"
-                        f"💧 *Likuiditas:* ${liquidity:,.0f}\n"
-                        f"📊 *Volume (1j):* ${h1_volume:,.0f}\n"
-                        f"📋 `CA: {ca}`\n\n"
-                        f"[DexScreener](https://dexscreener.com/solana/{ca})"
-                    )
-                    send_telegram_alert(msg)
-                    processed_pairs.add(address)
-                    time.sleep(1)
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                # Pastikan data dan pairs tidak None
+                if data and isinstance(data, dict):
+                    pairs = data.get("pairs")
+                    if pairs and isinstance(pairs, list):
+                        for pair in pairs:
+                            address = pair.get("pairAddress")
+                            if not address or address in processed_pairs:
+                                continue
+                            
+                            name = pair.get("baseToken", {}).get("name", "Unknown")
+                            symbol = pair.get("baseToken", {}).get("symbol", "UNKNOWN")
+                            liquidity = pair.get("liquidity", {}).get("usd", 0) or 0
+                            h6_volume = pair.get("volume", {}).get("h6", 0) or 0
+                            ca = pair.get("baseToken", {}).get("address", "")
+                            
+                            if liquidity >= 10000 and h6_volume >= 20000:
+                                msg = (
+                                    f"🚨 *POTENSI TOKEN BARU TERDETEKSI* 🚨\n\n"
+                                    f"🪙 *Nama:* {name} ({symbol})\n"
+                                    f"💧 *Likuiditas:* ${liquidity:,.0f}\n"
+                                    f"📊 *Volume (1j):* ${h1_volume:,.0f}\n"
+                                    f"📋 `CA: {ca}`\n\n"
+                                    f"[DexScreener](https://dexscreener.com/solana/{ca})"
+                                )
+                                send_telegram_alert(msg)
+                                processed_pairs.add(address)
+                                time.sleep(1)
         except Exception as e:
             print(f"Error saat scanning: {e}")
         
         time.sleep(60)
 
-# Jalankan scanner di thread terpisah agar Flask tetap aktif
+# Jalankan scanner di thread terpisah
 threading.Thread(target=scan_loop, daemon=True).start()
 
 @app.route("/")
