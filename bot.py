@@ -26,44 +26,42 @@ def scan_loop():
     print("🤖 Bot Scanner Meme Coin Berjalan...")
     send_telegram_alert("🟢 *Bot Scanner Aktif & Memindai Meme Coin!*")
     
-    # Simpan cache token yang sudah dikirim agar tidak spam
     sent_tokens = set()
     
     while True:
         try:
-            # Menggunakan endpoint pencarian umum DexScreener untuk Solana
             url = "https://api.dexscreener.com/latest/dex/search?q=solana"
             response = requests.get(url, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
                 pairs = data.get("pairs", [])
-                print(f"Total token ditemukan dari API: {len(pairs)}")
+                print(f"🔍 Total token dari API: {len(pairs)}")
                 
                 for pair in pairs:
-                    if pair.get("chainId") != "solana":
+                    chain_id = pair.get("chainId")
+                    if chain_id != "solana":
                         continue
                         
-                    name = pair.get("baseToken", {}).get("name", "Unknown")
-                    symbol = pair.get("baseToken", {}).get("symbol", "UNKNOWN")
+                    base_token = pair.get("baseToken", {})
+                    name = base_token.get("name", "Unknown")
+                    symbol = base_token.get("symbol", "UNKNOWN")
+                    ca = base_token.get("address", "")
                     
-                    # Lewati koin induk/utama
+                    # Cek blacklist koin utama
                     if symbol.upper() in ["SOL", "USDC", "USDT", "WBTC", "WSOL"]:
                         continue
                         
-                    address = pair.get("pairAddress")
-                    ca = pair.get("baseToken", {}).get("address", "")
-                    
                     if not ca or ca in sent_tokens:
                         continue
                         
                     liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
                     h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
                     
-                    print(f"-> Memeriksa: {name} ({symbol}) | Liq: ${liquidity:,.0f} | Vol: ${h24_volume:,.0f}")
+                    print(ket := f"✨ Ditemukan: {name} ({symbol}) | Liq: ${liquidity:,.0f} | Vol: ${h24_volume:,.0f}")
                     
-                    # Filter longgar untuk uji coba agar sinyal lekas muncul
-                    if h24_volume >= 100 or liquidity >= 100:
+                    # Filter longgar agar langsung mengirimkan sinyal meme coin pertama
+                    if h24_volume >= 50 or liquidity >= 50:
                         msg = (
                             f"🚨 *POTENSI MEME COIN BARU* 🚨\n\n"
                             f"🪙 *Nama:* {name} ({symbol})\n"
@@ -75,7 +73,7 @@ def scan_loop():
                         send_telegram_alert(msg)
                         sent_tokens.add(ca)
                         time.sleep(2)
-                        break # Kirim satu per siklus agar tidak menumpuk
+                        break # Kirim satu token dulu per siklus
                         
         except Exception as e:
             print(f"Error saat scanning: {e}")
