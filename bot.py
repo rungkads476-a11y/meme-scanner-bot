@@ -24,55 +24,45 @@ def send_telegram_alert(message):
 
 def scan_loop():
     print("🤖 Bot Scanner Meme Coin Berjalan...")
-    send_telegram_alert("🟢 *Bot Scanner Siap Menangkap Sinyal!*")
+    send_telegram_alert("🟢 *Bot Scanner Khusus Solana Aktif!*")
     
     sent_tokens = set()
     
     while True:
         try:
-            url = "https://api.dexscreener.com/latest/dex/search?q=solana"
+            # Menggunakan endpoint token profiles / latest untuk mendapatkan token baru di jaringan Solana
+            url = "https://api.dexscreener.com/token-profiles/latest/v1"
             response = requests.get(url, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
-                pairs = data.get("pairs", [])
-                print(f"🔍 Total token dari API: {len(pairs)}")
+                # Tangkap profil token yang berjejaring solana
+                print(f"🔍 Total profil token dari API: {len(data)}")
                 
-                for pair in pairs:
-                    # Pastikan chain-nya adalah solana
-                    if pair.get("chainId") != "solana":
+                for item in data:
+                    chainId = item.get("chainId")
+                    if chainId != "solana":
                         continue
                         
-                    base_token = pair.get("baseToken", {})
-                    name = base_token.get("name", "Unknown")
-                    symbol = base_token.get("symbol", "UNKNOWN")
-                    ca = base_token.get("address", "")
+                    tokenAddress = item.get("tokenAddress", "")
+                    description = item.get("description", "Meme Coin Solana")
+                    url_dex = item.get("url", f"https://dexscreener.com/solana/{tokenAddress}")
                     
-                    # Abaikan koin utama
-                    if symbol.upper() in ["SOL", "USDC", "USDT", "WBTC", "WSOL"]:
+                    if not tokenAddress or tokenAddress in sent_tokens:
                         continue
                         
-                    if not ca or ca in sent_tokens:
-                        continue
-                        
-                    liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
-                    h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
+                    print(f"✨ Ditemukan Token Solana Baru: {tokenAddress}")
                     
-                    print(f"✨ Lolos Filter: {name} ({symbol}) | Liq: ${liquidity:,.0f} | Vol: ${h24_volume:,.0f}")
-                    
-                    # Kirim langsung token apapun yang lewat tanpa batasan ketat dulu
                     msg = (
-                        f"🚨 *POTENSI MEME COIN BARU* 🚨\n\n"
-                        f"🪙 *Nama:* {name} ({symbol})\n"
-                        f"💧 *Likuiditas:* ${liquidity:,.0f}\n"
-                        f"📊 *Volume (24j):* ${h24_volume:,.0f}\n"
-                        f"📋 `CA: {ca}`\n\n"
-                        f"[DexScreener](https://dexscreener.com/solana/{ca})"
+                        f"🚨 *MEME COIN SOLANA BARU* 🚨\n\n"
+                        f"📋 `CA: {tokenAddress}`\n\n"
+                        f"📝 *Info:* {description[:100]}...\n\n"
+                        f"[Cek di DexScreener]({url_dex})"
                     )
                     send_telegram_alert(msg)
-                    sent_tokens.add(ca)
+                    sent_tokens.add(tokenAddress)
                     time.sleep(2)
-                    break # Kirim satu per siklus agar langsung nampak hasilnya
+                    break # Kirim satu per siklus
                         
         except Exception as e:
             print(f"Error saat scanning: {e}")
