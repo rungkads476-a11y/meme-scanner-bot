@@ -7,7 +7,7 @@ from flask import Flask
 app = Flask(__name__)
 
 # Masukkan langsung token dan chat ID kamu di sini agar tidak gagal terbaca
-TELEGRAM_BOT_TOKEN = "9092596232:AAFSaSnIExBso6kKnittNbEImq3srt_RosA"
+TELEGRAM_BOT_TOKEN = "9092596232:9092596232:AAFsASnIExBso6kKnittNbEIMq3srt_RosA"
 TELEGRAM_CHAT_ID = "5067711859"
 
 def send_telegram_alert(message):
