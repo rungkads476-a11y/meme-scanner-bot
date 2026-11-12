@@ -6,8 +6,8 @@ from flask import Flask
 
 app = Flask(__name__)
 
-# Masukkan langsung token dan chat ID kamu di sini agar tidak gagal terbaca
-TELEGRAM_BOT_TOKEN = "9092596232:AAFsASnIExBso6kKnittNbEIMq3srt_RosA"
+# Kredensial Telegram
+TELEGRAM_BOT_TOKEN = "9092596232:AAFSaSnIExBso6kKnittNbEImq3srt_RosA"
 TELEGRAM_CHAT_ID = "5067711859"
 
 def send_telegram_alert(message):
@@ -25,7 +25,6 @@ def send_telegram_alert(message):
 
 def scan_loop():
     print("🤖 Bot Scanner Meme Coin Berjalan...")
-    # Kirim pesan tes langsung saat bot menyala
     send_telegram_alert("🟢 *Bot Scanner Berhasil Terhubung ke Telegram!*")
     
     while True:
@@ -40,17 +39,22 @@ def scan_loop():
                     if pair.get("chainId") != "solana":
                         continue
                         
-                    address = pair.get("pairAddress")
                     name = pair.get("baseToken", {}).get("name", "Unknown")
                     symbol = pair.get("baseToken", {}).get("symbol", "UNKNOWN")
                     
+                    # Filter untuk melewatkan koin induk/utama
+                    if symbol.upper() in ["SOL", "USDC", "USDT", "WBTC", "WSOL"]:
+                        continue
+                        
+                    address = pair.get("pairAddress")
                     liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
                     h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
                     ca = pair.get("baseToken", {}).get("address", "")
                     
-                    if h24_volume >= 5000 or liquidity >= 5000:
+                    # Filter batas bawah likuiditas & volume meme coin
+                    if h24_volume >= 1000 and liquidity >= 1000:
                         msg = (
-                            f"🚨 *POTENSI MEME COIN TERDETEKSI* 🚨\n\n"
+                            f"🚨 *POTENSI MEME COIN BARU* 🚨\n\n"
                             f"🪙 *Nama:* {name} ({symbol})\n"
                             f"💧 *Likuiditas:* ${liquidity:,.0f}\n"
                             f"📊 *Volume (24j):* ${h24_volume:,.0f}\n"
@@ -59,7 +63,7 @@ def scan_loop():
                         )
                         send_telegram_alert(msg)
                         time.sleep(1)
-                        break # Kirim satu dulu untuk tes
+                        break # Kirim satu token dulu untuk tes
         except Exception as e:
             print(f"Error saat scanning: {e}")
         
