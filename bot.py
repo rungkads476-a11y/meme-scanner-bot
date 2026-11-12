@@ -6,13 +6,11 @@ from flask import Flask
 
 app = Flask(__name__)
 
-TELEGRAM_BOT_TOKEN = os.environ.get("9092596232:AAFsASnIExBso6kKnittNbEIMq3srt_RosA")
-TELEGRAM_CHAT_ID = os.environ.get("5067711859")
+# Masukkan langsung token dan chat ID kamu di sini agar tidak gagal terbaca
+TELEGRAM_BOT_TOKEN = "9092596232:AAFSaSnIExBso6kKnittNbEImq3srt_RosA"
+TELEGRAM_CHAT_ID = "5067711859"
 
 def send_telegram_alert(message):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Token atau Chat ID belum diset di Environment Variables!")
-        return
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
@@ -27,29 +25,41 @@ def send_telegram_alert(message):
 
 def scan_loop():
     print("🤖 Bot Scanner Meme Coin Berjalan...")
-    # Kirim pesan tes sekali saat bot pertama kali nyala
+    # Kirim pesan tes langsung saat bot menyala
     send_telegram_alert("🟢 *Bot Scanner Berhasil Terhubung ke Telegram!*")
     
     while True:
         try:
             url = "https://api.dexscreener.com/latest/dex/search?q=solana"
             response = requests.get(url, timeout=10)
-            print(f"Status API DexScreener: {response.status_code}")
-            
             if response.status_code == 200:
                 data = response.json()
                 pairs = data.get("pairs", [])
-                print(f"Total token ditemukan dari API: {len(pairs)}")
                 
-                for pair in pairs[:3]:  # Cek 3 token pertama untuk tes
+                for pair in pairs:
+                    if pair.get("chainId") != "solana":
+                        continue
+                        
+                    address = pair.get("pairAddress")
                     name = pair.get("baseToken", {}).get("name", "Unknown")
                     symbol = pair.get("baseToken", {}).get("symbol", "UNKNOWN")
-                    chainId = pair.get("chainId")
-                    print(f"-> Ditemukan: {name} ({symbol}) di chain: {chainId}")
                     
-            else:
-                print(f"Gagal ambil data API, status: {response.status_code}")
-                
+                    liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
+                    h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
+                    ca = pair.get("baseToken", {}).get("address", "")
+                    
+                    if h24_volume >= 5000 or liquidity >= 5000:
+                        msg = (
+                            f"🚨 *POTENSI MEME COIN TERDETEKSI* 🚨\n\n"
+                            f"🪙 *Nama:* {name} ({symbol})\n"
+                            f"💧 *Likuiditas:* ${liquidity:,.0f}\n"
+                            f"📊 *Volume (24j):* ${h24_volume:,.0f}\n"
+                            f"📋 `CA: {ca}`\n\n"
+                            f"[DexScreener](https://dexscreener.com/solana/{ca})"
+                        )
+                        send_telegram_alert(msg)
+                        time.sleep(1)
+                        break # Kirim satu dulu untuk tes
         except Exception as e:
             print(f"Error saat scanning: {e}")
         
