@@ -6,7 +6,6 @@ from flask import Flask
 
 app = Flask(__name__)
 
-# Kredensial Telegram
 TELEGRAM_BOT_TOKEN = "9092596232:AAEklRLbjlhSXufDLQzjtZgaFbtXFjGR5M4"
 TELEGRAM_CHAT_ID = "5067711859"
 
@@ -25,15 +24,21 @@ def send_telegram_alert(message):
 
 def scan_loop():
     print("🤖 Bot Scanner Meme Coin Berjalan...")
-    send_telegram_alert("🟢 *Bot Scanner Berhasil Terhubung ke Telegram!*")
+    send_telegram_alert("🟢 *Bot Scanner Aktif & Memindai Meme Coin!*")
+    
+    # Simpan cache token yang sudah dikirim agar tidak spam
+    sent_tokens = set()
     
     while True:
         try:
+            # Menggunakan endpoint pencarian umum DexScreener untuk Solana
             url = "https://api.dexscreener.com/latest/dex/search?q=solana"
             response = requests.get(url, timeout=10)
+            
             if response.status_code == 200:
                 data = response.json()
                 pairs = data.get("pairs", [])
+                print(f"Total token ditemukan dari API: {len(pairs)}")
                 
                 for pair in pairs:
                     if pair.get("chainId") != "solana":
@@ -42,17 +47,23 @@ def scan_loop():
                     name = pair.get("baseToken", {}).get("name", "Unknown")
                     symbol = pair.get("baseToken", {}).get("symbol", "UNKNOWN")
                     
-                    # Filter untuk melewatkan koin induk/utama
+                    # Lewati koin induk/utama
                     if symbol.upper() in ["SOL", "USDC", "USDT", "WBTC", "WSOL"]:
                         continue
                         
                     address = pair.get("pairAddress")
-                    liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
-                    h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
                     ca = pair.get("baseToken", {}).get("address", "")
                     
-                    # Filter batas bawah likuiditas & volume meme coin
-                    if h24_volume >= 1000 and liquidity >= 1000:
+                    if not ca or ca in sent_tokens:
+                        continue
+                        
+                    liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
+                    h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
+                    
+                    print(f"-> Memeriksa: {name} ({symbol}) | Liq: ${liquidity:,.0f} | Vol: ${h24_volume:,.0f}")
+                    
+                    # Filter longgar untuk uji coba agar sinyal lekas muncul
+                    if h24_volume >= 100 or liquidity >= 100:
                         msg = (
                             f"🚨 *POTENSI MEME COIN BARU* 🚨\n\n"
                             f"🪙 *Nama:* {name} ({symbol})\n"
@@ -62,14 +73,15 @@ def scan_loop():
                             f"[DexScreener](https://dexscreener.com/solana/{ca})"
                         )
                         send_telegram_alert(msg)
-                        time.sleep(1)
-                        break # Kirim satu token dulu untuk tes
+                        sent_tokens.add(ca)
+                        time.sleep(2)
+                        break # Kirim satu per siklus agar tidak menumpuk
+                        
         except Exception as e:
             print(f"Error saat scanning: {e}")
         
-        time.sleep(60)
+        time.sleep(30)
 
-# Jalankan scanner di background thread
 threading.Thread(target=scan_loop, daemon=True).start()
 
 @app.route("/")
