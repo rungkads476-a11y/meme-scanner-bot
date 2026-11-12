@@ -2,8 +2,8 @@ import time
 import requests
 
 # Masukkan Token Bot Telegram (dari @BotFather) dan Chat ID kamu di sini
-TELEGRAM_BOT_TOKEN = "MASUKKAN_BOT_TOKEN_DISINI"
-TELEGRAM_CHAT_ID = "MASUKKAN_CHAT_ID_DISINI"
+TELEGRAM_BOT_TOKEN = "9092596232:AAFsASnIExBso6kKnittNbEIMq3srt_RosA"
+TELEGRAM_CHAT_ID = "5067711859"
 
 def send_telegram_alert(message):
     """Fungsi untuk mengirim pesan ke Telegram"""
