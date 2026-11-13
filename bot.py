@@ -2,14 +2,13 @@ import os
 import time
 import threading
 import requests
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, render_template_string
 
 app = Flask(__name__)
 
 TELEGRAM_BOT_TOKEN = "9092596232:AAEklRLbjlhSXufDLQzjtZgaFbtXFjGR5M4"
 TELEGRAM_CHAT_ID = "5067711859"
 
-# List untuk menyimpan riwayat koin yang ditemukan agar tampil di web
 detected_coins = []
 
 def send_telegram_alert(message):
@@ -26,52 +25,72 @@ def send_telegram_alert(message):
 
 def scan_loop():
     print("🤖 Bot Scanner Meme Coin Berjalan...")
-    send_telegram_alert("🟢 *Bot Scanner & Dashboard Web Aktif!*")
+    send_telegram_alert("🟢 *Bot Scanner & Filter Likuiditas Min $13,000 Aktif!*")
     
     sent_tokens = set()
     
     while True:
         try:
-            url = "https://api.dexscreener.com/token-profiles/latest/v1"
+            # Menggunakan endpoint pairs / search agar mendapatkan data finansial (likuiditas & volume)
+            url = "https://api.dexscreener.com/latest/dex/search?q=solana"
             response = requests.get(url, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
+                pairs = data.get("pairs", [])
                 
-                for item in data:
-                    chainId = item.get("chainId")
-                    if chainId != "solana":
+                for pair in pairs:
+                    if pair.get("chainId") != "solana":
                         continue
                         
-                    tokenAddress = item.get("tokenAddress", "")
-                    description = item.get("description", "Meme Coin Solana")
-                    url_dex = item.get("url", f"https://dexscreener.com/solana/{tokenAddress}")
+                    base_token = pair.get("baseToken", {})
+                    name = base_token.get("name", "Unknown")
+                    symbol = base_token.get("symbol", "UNKNOWN")
+                    ca = base_token.get("address", "")
                     
-                    if not tokenAddress or tokenAddress in sent_tokens:
+                    # Abaikan koin induk/utama
+                    if symbol.upper() in ["SOL", "USDC", "USDT", "WBTC", "WSOL"]:
                         continue
                         
-                    # Simpan data ke memori untuk ditampilkan di web dashboard
+                    if not ca or ca in sent_tokens:
+                        continue
+                        
+                    # Ambil nilai likuiditas dalam USD
+                    liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
+                    h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
+                    
+                    # FILTER UTAMA: Likuiditas wajib minimal $13,000
+                    if liquidity < 13000:
+                        continue
+                        
+                    url_dex = pair.get("url", f"https://dexscreener.com/solana/{ca}")
+                    
                     coin_info = {
-                        "address": tokenAddress,
-                        "description": description[:120] if description else "Tidak ada deskripsi",
+                        "name": name,
+                        "symbol": symbol,
+                        "address": ca,
+                        "liquidity": liquidity,
+                        "volume": h24_volume,
                         "url": url_dex,
                         "time": time.strftime("%H:%M:%S")
                     }
                     
-                    detected_coins.insert(0, coin_info) # Masukkan ke urutan paling atas
-                    if len(detected_coins) > 50: # Batasi 50 data terakhir
+                    detected_coins.insert(0, coin_info)
+                    if len(detected_coins) > 50:
                         detected_coins.pop()
                         
                     msg = (
-                        f"🚨 *MEME COIN SOLANA BARU* 🚨\n\n"
-                        f"📋 `CA: {tokenAddress}`\n\n"
-                        f"📝 *Info:* {coin_info['description']}...\n\n"
+                        f"🚨 *MEME COIN SOLANA (LIQ ≥ $13K)* 🚨\n\n"
+                        f"🪙 *Nama:* {name} ({symbol})\n"
+                        f"💧 *Likuiditas:* ${liquidity:,.0f}\n"
+                        f"📊 *Volume (24j):* ${h24_volume:,.0f}\n"
+                        f"📋 `CA: {ca}`\n\n"
                         f"[Cek di DexScreener]({url_dex})"
                     )
                     send_telegram_alert(msg)
-                    sent_tokens.add(tokenAddress)
+                    sent_tokens.add(ca)
                     time.sleep(2)
-                    break 
+                    break # Kirim satu per siklus
                         
         except Exception as e:
             print(f"Error saat scanning: {e}")
@@ -80,7 +99,6 @@ def scan_loop():
 
 threading.Thread(target=scan_loop, daemon=True).start()
 
-# Tampilan HTML Dashboard Web dengan gaya Glassmorphism yang keren
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="id">
@@ -97,10 +115,7 @@ HTML_TEMPLATE = """
             margin: 0;
             padding: 20px;
         }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
+        .container { max-width: 900px; margin: 0 auto; }
         header {
             display: flex;
             justify-content: space-between;
@@ -127,23 +142,26 @@ HTML_TEMPLATE = """
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
         .time { font-size: 0.75rem; color: #94a3b8; }
+        .title-coin { font-weight: 700; color: #38bdf8; font-size: 1.1rem; margin: 5px 0; }
+        .stats { font-size: 0.9rem; color: #34d399; margin-bottom: 8px; }
         .ca {
             font-family: monospace;
             background: #0f172a;
             padding: 6px 10px;
             border-radius: 6px;
             display: inline-block;
-            margin: 8px 0;
+            margin: 5px 0;
             color: #fbbf24;
             font-size: 0.85rem;
             word-break: break-all;
         }
-        .desc { font-size: 0.9rem; color: #cbd5e1; margin-bottom: 10px; }
         a {
             color: #38bdf8;
             text-decoration: none;
             font-weight: 600;
             font-size: 0.85rem;
+            display: inline-block;
+            margin-top: 5px;
         }
         a:hover { text-decoration: underline; }
         .empty { text-align: center; color: #64748b; padding: 40px; }
@@ -152,33 +170,31 @@ HTML_TEMPLATE = """
 <body>
     <div class="container">
         <header>
-            <h1>⚡ Fin-Signal Scanner</h1>
+            <h1>⚡ Fin-Signal Scanner (Liq ≥ $13K)</h1>
             <div class="status">● Bot Active</div>
         </header>
         
-        <p style="color: #94a3b8; font-size: 0.9rem;">Menampilkan daftar meme coin Solana terbaru yang tertangkap sistem secara real-time.</p>
+        <p style="color: #94a3b8; font-size: 0.9rem;">Memantau meme coin Solana dengan likuiditas minimum $13,000 secara real-time.</p>
         
         <div id="coin-list">
             {% if coins %}
                 {% for coin in coins %}
                 <div class="card">
                     <div class="time">🕒 Terdeteksi jam: {{ coin.time }}</div>
-                    <div class="ca">CA: {{ coin.address }}</div>
-                    <div class="desc">{{ coin.description }}</div>
+                    <div class="title-coin">{{ coin.name }} ({{ coin.symbol }})</div>
+                    <div class="stats">💧 Likuiditas: ${{ "{:,.0f}".format(coin.liquidity) }} | 📊 Vol (24j): ${{ "{:,.0f}".format(coin.volume) }}</div>
+                    <div class="ca">CA: {{ coin.address }}</div><br>
                     <a href="{{ coin.url }}" target="_blank">📈 Buka Grafik di DexScreener &rarr;</a>
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="empty">Belum ada koin yang tersaring. Menunggu sinyal baru...</div>
+                <div class="empty">Belum ada koin yang memenuhi syarat likuiditas ≥ $13,000. Menunggu sinyal...</div>
             {% endif %}
         </div>
     </div>
 
     <script>
-        // Auto refresh halaman setiap 15 detik agar data koin baru muncul otomatis
-        setTimeout(() => {
-            location.reload();
-        }, 15000);
+        setTimeout(() => { location.reload(); }, 15000);
     </script>
 </body>
 </html>
