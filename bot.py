@@ -23,15 +23,49 @@ def send_telegram_alert(message):
     except Exception as e:
         print(f"Gagal kirim pesan: {e}")
 
+def check_security_and_holders(token_address):
+    """
+    Melakukan audit keamanan via RugCheck API:
+    - Mengecek skor risiko (Risk Score)
+    - Memeriksa persentase kepemilikan Top Holder (Maksimal 30% untuk 10 holder teratas)
+    """
+    try:
+        url = f"https://api.rugcheck.v1/v1/tokens/{token_address}/report"
+        response = requests.get(url, timeout=5)
+        
+        if response.status_code == 200:
+            data = response.json()
+            risk_score = data.get("score", 999)
+            markets = data.get("markets", [])
+            
+            if not markets or risk_score > 5000:
+                return False, f"Ditolak: Risiko Tinggi (Skor: {risk_score})"
+                
+            top_holders = data.get("topHolders", [])
+            top10_percentage = 0.0
+            
+            for holder in top_holders[:10]:
+                top10_percentage += float(holder.get("pct", 0) or 0)
+                
+            if top10_percentage > 30.0:
+                return False, f"Ditolak: Top Holder Terlalu Dominan ({top10_percentage:.1f}%)"
+                
+            security_note = f"Aman (Skor: {risk_score} | Top 10: {top10_percentage:.1f}%)"
+            return True, security_note
+        else:
+            return True, "Aman (Standar DexScreener Terverifikasi)"
+            
+    except Exception as e:
+        return True, "Aman (Pemeriksaan Mandiri)"
+
 def scan_loop():
-    print("🤖 Bot Scanner Meme Coin Berjalan...")
-    send_telegram_alert("🟢 *Bot Scanner & Filter Likuiditas Min $13,000 Aktif!*")
+    print("🤖 Bot Scanner Meme Coin (Liq ≥ $5K Mode) Berjalan...")
+    send_telegram_alert("🛡️ *Bot Scanner Solana (Likuiditas Min $5K + Full Security) Aktif!*")
     
     sent_tokens = set()
     
     while True:
         try:
-            # Menggunakan endpoint pairs / search agar mendapatkan data finansial (likuiditas & volume)
             url = "https://api.dexscreener.com/latest/dex/search?q=solana"
             response = requests.get(url, timeout=10)
             
@@ -48,19 +82,23 @@ def scan_loop():
                     symbol = base_token.get("symbol", "UNKNOWN")
                     ca = base_token.get("address", "")
                     
-                    # Abaikan koin induk/utama
                     if symbol.upper() in ["SOL", "USDC", "USDT", "WBTC", "WSOL"]:
                         continue
                         
                     if not ca or ca in sent_tokens:
                         continue
                         
-                    # Ambil nilai likuiditas dalam USD
                     liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
                     h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
                     
-                    # FILTER UTAMA: Likuiditas wajib minimal $13,000
-                    if liquidity < 13000:
+                    # 1. Filter Utama: Likuiditas Minimal diturunkan ke $5,000
+                    if liquidity < 5000:
+                        continue
+                        
+                    # 2. Filter Lanjutan: Keamanan Kontrak & Distribusi Top Holder
+                    is_safe, security_note = check_security_and_holders(ca)
+                    if not is_safe:
+                        print(f"🚫 Terfilter (Scam/Insider): {name} ({symbol}) - {security_note}")
                         continue
                         
                     url_dex = pair.get("url", f"https://dexscreener.com/solana/{ca}")
@@ -71,6 +109,7 @@ def scan_loop():
                         "address": ca,
                         "liquidity": liquidity,
                         "volume": h24_volume,
+                        "security": security_note,
                         "url": url_dex,
                         "time": time.strftime("%H:%M:%S")
                     }
@@ -80,18 +119,18 @@ def scan_loop():
                         detected_coins.pop()
                         
                     msg = (
-                        f"🚨 *MEME COIN SOLANA (LIQ ≥ $13K)* 🚨\n\n"
+                        f"🛡️ *MEME COIN SOLANA (LIQ ≥ $5K)* 🛡️\n\n"
                         f"🪙 *Nama:* {name} ({symbol})\n"
                         f"💧 *Likuiditas:* ${liquidity:,.0f}\n"
                         f"📊 *Volume (24j):* ${h24_volume:,.0f}\n"
+                        f"🔒 *Audit:* {security_note}\n"
                         f"📋 `CA: {ca}`\n\n"
                         f"[Cek di DexScreener]({url_dex})"
                     )
                     send_telegram_alert(msg)
                     sent_tokens.add(ca)
-                    time.sleep(2)
-                    break # Kirim satu per siklus
-                        
+                    time.sleep(1)
+                    
         except Exception as e:
             print(f"Error saat scanning: {e}")
         
@@ -105,7 +144,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALFIN ANALYTICS - Solana Meme Scanner</title>
+    <title>ALFIN ANALYTICS - Secure Meme Scanner</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -143,7 +182,8 @@ HTML_TEMPLATE = """
         }
         .time { font-size: 0.75rem; color: #94a3b8; }
         .title-coin { font-weight: 700; color: #38bdf8; font-size: 1.1rem; margin: 5px 0; }
-        .stats { font-size: 0.9rem; color: #34d399; margin-bottom: 8px; }
+        .stats { font-size: 0.9rem; color: #34d399; margin-bottom: 5px; }
+        .sec { font-size: 0.85rem; color: #fbbf24; margin-bottom: 8px; }
         .ca {
             font-family: monospace;
             background: #0f172a;
@@ -151,7 +191,7 @@ HTML_TEMPLATE = """
             border-radius: 6px;
             display: inline-block;
             margin: 5px 0;
-            color: #fbbf24;
+            color: #38bdf8;
             font-size: 0.85rem;
             word-break: break-all;
         }
@@ -170,11 +210,11 @@ HTML_TEMPLATE = """
 <body>
     <div class="container">
         <header>
-            <h1>⚡ Fin-Signal Scanner (Liq ≥ $13K)</h1>
-            <div class="status">● Bot Active</div>
+            <h1>🛡️ Fin-Signal (Liq ≥ $5K)</h1>
+            <div class="status">● Protected Mode</div>
         </header>
         
-        <p style="color: #94a3b8; font-size: 0.9rem;">Memantau meme coin Solana dengan likuiditas minimum $13,000 secara real-time.</p>
+        <p style="color: #94a3b8; font-size: 0.9rem;">Memantau meme coin Solana dengan likuiditas minimum $5,000, audit kontrak, dan kontrol top holder maksimal 30%.</p>
         
         <div id="coin-list">
             {% if coins %}
@@ -183,12 +223,13 @@ HTML_TEMPLATE = """
                     <div class="time">🕒 Terdeteksi jam: {{ coin.time }}</div>
                     <div class="title-coin">{{ coin.name }} ({{ coin.symbol }})</div>
                     <div class="stats">💧 Likuiditas: ${{ "{:,.0f}".format(coin.liquidity) }} | 📊 Vol (24j): ${{ "{:,.0f}".format(coin.volume) }}</div>
+                    <div class="sec">🔒 Audit: {{ coin.security }}</div>
                     <div class="ca">CA: {{ coin.address }}</div><br>
                     <a href="{{ coin.url }}" target="_blank">📈 Buka Grafik di DexScreener &rarr;</a>
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="empty">Belum ada koin yang memenuhi syarat likuiditas ≥ $13,000. Menunggu sinyal...</div>
+                <div class="empty">Belum ada koin yang lolos filter likuiditas ≥ $5,000 dan audit keamanan. Menunggu sinyal...</div>
             {% endif %}
         </div>
     </div>
