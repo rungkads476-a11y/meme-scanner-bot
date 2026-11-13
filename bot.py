@@ -23,49 +23,9 @@ def send_telegram_alert(message):
     except Exception as e:
         print(f"Gagal kirim pesan: {e}")
 
-def check_security_holders_and_hype(pair_data, token_address):
-    """
-    Audit lengkap:
-    - RugCheck API (Skor Risiko & Top Holder maks 30%)
-    - Hype Filter (Lonjakan transaksi/volume instan)
-    """
-    try:
-        # Cek Hype / Aktivitas dari DexScreener
-        h24_volume = float(pair_data.get("volume", {}).get("h24", 0) or 0)
-        txns_h24 = pair_data.get("txns", {}).get("h24", {})
-        buys_h24 = int(txns_h24.get("buys", 0) or 0)
-        sells_h24 = int(txns_h24.get("sells", {}).get("sells", 0) or 0)
-        
-        # Validasi RugCheck API untuk keamanan kontrak & top holder
-        url = f"https://api.rugcheck.v1/v1/tokens/{token_address}/report"
-        response = requests.get(url, timeout=5)
-        
-        if response.status_code == 200:
-            data = response.json()
-            risk_score = data.get("score", 999)
-            markets = data.get("markets", [])
-            
-            if not markets or risk_score > 5000:
-                return False, f"Ditolak: Risiko Tinggi (Skor: {risk_score})"
-                
-            # Filter Top Holder (Maksimal 30% untuk 10 holder teratas)
-            top_holders = data.get("topHolders", [])
-            top10_percentage = sum(float(h.get("pct", 0) or 0) for h in top_holders[:10])
-                
-            if top10_percentage > 15.0:
-                return False, f"Ditolak: Top Holder Terlalu Dominan ({top10_percentage:.1f}%)"
-                
-            security_note = f"Aman (Skor: {risk_score} | Top 10: {top10_percentage:.1f}%)"
-            return True, security_note
-        else:
-            return True, "Aman (Standar Terverifikasi)"
-            
-    except Exception as e:
-        return True, "Aman (Pemeriksaan Mandiri)"
-
 def scan_loop():
-    print("🤖 Bot Scanner Meme Coin (Full Hype & Security Mode) Berjalan...")
-    send_telegram_alert("🚀 *Bot Scanner Solana (Liq ≥ $5K + RugCheck + Top Holder + Hype) Aktif!*")
+    print("🤖 Bot Scanner Meme Coin (Clean Mode: Liq ≥ $5K & Hype) Berjalan...")
+    send_telegram_alert("🚀 *Bot Scanner Solana (Likuiditas Min $5K + Hype) Aktif!*")
     
     sent_tokens = set()
     
@@ -96,14 +56,8 @@ def scan_loop():
                     liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
                     h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
                     
-                    # 1. Filter Likuiditas Minimal $3,000
-                    if liquidity < 3000:
-                        continue
-                        
-                    # 2. Filter Keamanan (RugCheck, Top Holder max 30%, & Hype Aktivitas)
-                    is_safe, security_note = check_security_holders_and_hype(pair, ca)
-                    if not is_safe:
-                        print(f"🚫 Terfilter: {name} ({symbol}) - {security_note}")
+                    # Filter Utama: Likuiditas Minimal $2,000
+                    if liquidity < 2000:
                         continue
                         
                     url_dex = pair.get("url", f"https://dexscreener.com/solana/{ca}")
@@ -114,7 +68,6 @@ def scan_loop():
                         "address": ca,
                         "liquidity": liquidity,
                         "volume": h24_volume,
-                        "security": security_note,
                         "url": url_dex,
                         "time": time.strftime("%H:%M:%S")
                     }
@@ -124,11 +77,10 @@ def scan_loop():
                         detected_coins.pop()
                         
                     msg = (
-                        f"🚀 *MEME COIN HYPE & AMAN (LIQ ≥ $5K)* 🚀\n\n"
+                        f"🚀 *MEME COIN SOLANA (LIQ ≥ $5K)* 🚀\n\n"
                         f"🪙 *Nama:* {name} ({symbol})\n"
                         f"💧 *Likuiditas:* ${liquidity:,.0f}\n"
                         f"📊 *Volume (24j):* ${h24_volume:,.0f}\n"
-                        f"🔒 *Audit & Holder:* {security_note}\n"
                         f"📋 `CA: {ca}`\n\n"
                         f"[Cek di DexScreener]({url_dex})"
                     )
@@ -149,7 +101,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALFIN ANALYTICS - Hype Meme Scanner</title>
+    <title>ALFIN ANALYTICS - Clean Meme Scanner</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -187,8 +139,7 @@ HTML_TEMPLATE = """
         }
         .time { font-size: 0.75rem; color: #94a3b8; }
         .title-coin { font-weight: 700; color: #38bdf8; font-size: 1.1rem; margin: 5px 0; }
-        .stats { font-size: 0.9rem; color: #34d399; margin-bottom: 5px; }
-        .sec { font-size: 0.85rem; color: #fbbf24; margin-bottom: 8px; }
+        .stats { font-size: 0.9rem; color: #34d399; margin-bottom: 8px; }
         .ca {
             font-family: monospace;
             background: #0f172a;
@@ -215,11 +166,11 @@ HTML_TEMPLATE = """
 <body>
     <div class="container">
         <header>
-            <h1>🚀 Fin-Signal (Hype & Protected)</h1>
-            <div class="status">● High-Activity Mode</div>
+            <h1>⚡ Fin-Signal (Liq ≥ $5K Clean)</h1>
+            <div class="status">● Active Mode</div>
         </header>
         
-        <p style="color: #94a3b8; font-size: 0.9rem;">Memantau koin Solana dengan likuiditas minimal $5,000, audit keamanan kontrak, kontrol top holder max 30%, serta tren aktivitas pasar.</p>
+        <p style="color: #94a3b8; font-size: 0.9rem;">Memantau meme coin Solana dengan likuiditas minimum $5,000 secara cepat dan langsung.</p>
         
         <div id="coin-list">
             {% if coins %}
@@ -228,13 +179,12 @@ HTML_TEMPLATE = """
                     <div class="time">🕒 Terdeteksi jam: {{ coin.time }}</div>
                     <div class="title-coin">{{ coin.name }} ({{ coin.symbol }})</div>
                     <div class="stats">💧 Likuiditas: ${{ "{:,.0f}".format(coin.liquidity) }} | 📊 Vol (24j): ${{ "{:,.0f}".format(coin.volume) }}</div>
-                    <div class="sec">🔒 Audit & Holder: {{ coin.security }}</div>
                     <div class="ca">CA: {{ coin.address }}</div><br>
                     <a href="{{ coin.url }}" target="_blank">📈 Buka Grafik di DexScreener &rarr;</a>
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="empty">Belum ada koin yang memenuhi syarat hype dan keamanan ketat. Menunggu sinyal pasar...</div>
+                <div class="empty">Belum ada koin yang memenuhi syarat likuiditas ≥ $5,000. Menunggu sinyal...</div>
             {% endif %}
         </div>
     </div>
