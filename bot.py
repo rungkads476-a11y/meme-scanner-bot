@@ -94,8 +94,7 @@ def scan_loop():
 
 threading.Thread(target=scan_loop, daemon=True).start()
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
+HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -186,10 +185,6 @@ HTML_TEMPLATE = """
             border-radius: 14px;
             padding: 16px;
             margin-bottom: 12px;
-            transition: transform 0.2s ease, border-color 0.2s ease;
-        }
-        .card:active {
-            transform: scale(0.98);
         }
         .card-header {
             display: flex;
@@ -239,3 +234,92 @@ HTML_TEMPLATE = """
             padding: 8px 10px;
             border-radius: 8px;
             font-family: monospace;
+            font-size: 0.75rem;
+            color: #fbbf24;
+            word-break: break-all;
+            margin-bottom: 12px;
+        }
+        .btn-dex {
+            display: block;
+            width: 100%;
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            color: white;
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            background: var(--card-bg);
+            border: 1px dashed var(--border-color);
+            border-radius: 16px;
+            color: var(--text-muted);
+        }
+        .empty-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-card">
+            <div class="header-top">
+                <h1>⚡ ALFIN ANALYTICS</h1>
+                <div class="badge"><div class="pulse"></div> Live Scanner</div>
+            </div>
+            <p class="desc">Memindai meme coin Solana baru dengan likuiditas minimum $500 secara real-time.</p>
+        </div>
+        
+        <div id="coin-list">
+            {% if coins %}
+                {% for coin in coins %}
+                <div class="card">
+                    <div class="card-header">
+                        <div class="coin-name">{{ coin.name }} <span style="color: var(--text-muted); font-weight: 400;">({{ coin.symbol }})</span></div>
+                        <div class="time-tag">🕒 {{ coin.time }}</div>
+                    </div>
+                    
+                    <div class="metrics-grid">
+                        <div class="metric-box">
+                            <div class="metric-label">Likuiditas</div>
+                            <div class="metric-value">${{ "{:,.0f}".format(coin.liquidity) }}</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-label">Volume (24j)</div>
+                            <div class="metric-value" style="color: #38bdf8;">${{ "{:,.0f}".format(coin.volume) }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="ca-box">CA: {{ coin.address }}</div>
+                    
+                    <a href="{{ coin.url }}" target="_blank" class="btn-dex">Buka Grafik DexScreener &rarr;</a>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">📡</div>
+                    <div style="font-weight: 600; color: #fff; margin-bottom: 4px;">Menunggu Sinyal Koin Baru</div>
+                    <div style="font-size: 0.8rem;">Bot sedang aktif memantau pasar Solana (Liq ≥ $500)...</div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        setTimeout(() => { location.reload(); }, 15000);
+    </script>
+</body>
+</html>"""
+
+@app.route("/")
+def home():
+    return render_template_string(HTML_TEMPLATE, coins=detected_coins)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
