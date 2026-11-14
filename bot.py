@@ -24,8 +24,8 @@ def send_telegram_alert(message):
         print(f"Gagal kirim pesan: {e}")
 
 def scan_loop():
-    print("🤖 Bot Scanner Meme Coin (Pro UI Mode) Berjalan...")
-    send_telegram_alert("⚡ *Bot Scanner Solana (Liq ≥ $5K) Terhubung ke UI Baru!*")
+    print("🤖 Bot Scanner Meme Coin (Liq ≥ $500 Mode) Berjalan...")
+    send_telegram_alert("⚡ *Bot Scanner Solana (Likuiditas Min $500) Aktif!*")
     
     sent_tokens = set()
     
@@ -56,7 +56,8 @@ def scan_loop():
                     liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
                     h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
                     
-                    if liquidity < 5000:
+                    # Filter Utama: Likuiditas Minimal diturunkan ke $500
+                    if liquidity < 500:
                         continue
                         
                     url_dex = pair.get("url", f"https://dexscreener.com/solana/{ca}")
@@ -76,10 +77,10 @@ def scan_loop():
                         detected_coins.pop()
                         
                     msg = (
-                        f"⚡ *MEME COIN SOLANA BARU* ⚡\n\n"
+                        f"⚡ *MEME COIN SOLANA (LIQ ≥ $500)* ⚡\n\n"
                         f"🪙 *Nama:* {name} ({symbol})\n"
                         f"💧 *Likuiditas:* ${liquidity:,.0f}\n"
-                        f"📊 *Volume (1j):* ${h1_volume:,.0f}\n"
+                        f"📊 *Volume (24j):* ${h24_volume:,.0f}\n"
                         f"📋 `CA: {ca}`\n\n"
                         f"[Cek di DexScreener]({url_dex})"
                     )
@@ -221,112 +222,4 @@ HTML_TEMPLATE = """
             padding: 8px 12px;
             border-radius: 8px;
         }
-        .metric-label {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .metric-value {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #34d399;
-            margin-top: 2px;
-        }
-        .ca-box {
-            background: #0b0f19;
-            border: 1px solid #1a2234;
-            padding: 8px 10px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 0.75rem;
-            color: #fbbf24;
-            word-break: break-all;
-            margin-bottom: 12px;
-        }
-        .btn-dex {
-            display: block;
-            width: 100%;
-            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-            color: white;
-            text-align: center;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-decoration: none;
-            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
-        }
-        .empty-state {
-            text-align: center;
-            padding: 50px 20px;
-            background: var(--card-bg);
-            border: 1px dashed var(--border-color);
-            border-radius: 16px;
-            color: var(--text-muted);
-        }
-        .empty-icon {
-            font-size: 2rem;
-            margin-bottom: 10px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header-card">
-            <div class="header-top">
-                <h1>⚡ ALFIN ANALYTICS</h1>
-                <div class="badge"><div class="pulse"></div> Live Scanner</div>
-            </div>
-            <p class="desc">Memindai meme coin Solana baru dengan likuiditas minimum $5,000 secara real-time.</p>
-        </div>
-        
-        <div id="coin-list">
-            {% if coins %}
-                {% for coin in coins %}
-                <div class="card">
-                    <div class="card-header">
-                        <div class="coin-name">{{ coin.name }} <span style="color: var(--text-muted); font-weight: 400;">({{ coin.symbol }})</span></div>
-                        <div class="time-tag">🕒 {{ coin.time }}</div>
-                    </div>
-                    
-                    <div class="metrics-grid">
-                        <div class="metric-box">
-                            <div class="metric-label">Likuiditas</div>
-                            <div class="metric-value">${{ "{:,.0f}".format(coin.liquidity) }}</div>
-                        </div>
-                        <div class="metric-box">
-                            <div class="metric-label">Volume (24j)</div>
-                            <div class="metric-value" style="color: #38bdf8;">${{ "{:,.0f}".format(coin.volume) }}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="ca-box">CA: {{ coin.address }}</div>
-                    
-                    <a href="{{ coin.url }}" target="_blank" class="btn-dex">Buka Grafik DexScreener &rarr;</a>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="empty-state">
-                    <div class="empty-icon">📡</div>
-                    <div style="font-weight: 600; color: #fff; margin-bottom: 4px;">Menunggu Sinyal Koin Baru</div>
-                    <div style="font-size: 0.8rem;">Bot sedang aktif memantau pasar Solana (Liq ≥ $5K)...</div>
-                </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <script>
-        setTimeout(() => { location.reload(); }, 15000);
-    </script>
-</body>
-</html>
-"""
-
-@app.route("/")
-def home():
-    return render_template_string(HTML_TEMPLATE, coins=detected_coins)
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+        .
