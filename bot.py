@@ -24,8 +24,8 @@ def send_telegram_alert(message):
         print("Gagal kirim pesan:", e)
 
 def scan_loop():
-    print("🤖 Bot Scanner Meme Coin (Trending Solana Mode) Berjalan...")
-    send_telegram_alert("🚀 *Bot Scanner Solana (Trending Mode) Aktif!*")
+    print("🤖 Bot Scanner Meme Coin (Trending + Chart Mode) Berjalan...")
+    send_telegram_alert("🚀 *Bot Scanner Solana (Chart Mode) Aktif!*")
     
     sent_tokens = set()
     
@@ -82,7 +82,7 @@ def scan_loop():
                         }
                         
                         detected_coins.insert(0, coin_info)
-                        if len(detected_coins) > 50:
+                        if len(detected_coins) > 20: # Dibatasi 20 koin agar web tetap ringan di HP
                             detected_coins.pop()
                             
                         liq_str = f"{liquidity:,.0f}"
@@ -105,7 +105,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALFIN ANALYTICS - Trending Scanner</title>
+    <title>ALFIN ANALYTICS - Live Chart Scanner</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -129,11 +129,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             border: 1px solid #1f293d;
             border-radius: 14px;
             padding: 16px;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
         }
-        .coin-name { font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 8px; }
-        .metrics { font-size: 0.9rem; color: #34d399; margin-bottom: 8px; }
-        .ca { font-family: monospace; background: #0b0f19; padding: 8px; border-radius: 8px; color: #fbbf24; font-size: 0.75rem; word-break: break-all; margin-bottom: 10px; }
+        .coin-name { font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 6px; }
+        .metrics { font-size: 0.85rem; color: #34d399; margin-bottom: 8px; }
+        .ca { font-family: monospace; background: #0b0f19; padding: 6px 8px; border-radius: 6px; color: #fbbf24; font-size: 0.7rem; word-break: break-all; margin-bottom: 10px; }
+        .chart-container {
+            width: 100%;
+            height: 260px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #0b0f19;
+            margin-bottom: 10px;
+            border: 1px solid #1a2234;
+        }
+        .chart-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
         .btn { display: block; background: #0284c7; color: white; text-align: center; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.85rem; }
         .empty { text-align: center; padding: 40px; color: #9ca3af; background: #111827; border-radius: 16px; }
     </style>
@@ -142,16 +156,22 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="container">
         <div class="header-card">
             <h1>⚡ ALFIN ANALYTICS</h1>
-            <p style="color: #9ca3af; font-size: 0.85rem; margin: 0;">Memindai meme coin Solana trending (Liq ≥ $500).</p>
+            <p style="color: #9ca3af; font-size: 0.85rem; margin: 0;">Live Chart Scanner Solana (Liq ≥ $500).</p>
         </div>
         <div>
             {% if coins %}
                 {% for coin in coins %}
                 <div class="card">
                     <div class="coin-name">{{ coin.name }} ({{ coin.symbol }})</div>
-                    <div class="metrics">💧 Likuiditas: ${{ "{:,.0f}".format(coin.liquidity) }} | 📊 Vol: ${{ "{:,.0f}".format(coin.volume) }}</div>
+                    <div class="metrics">💧 Liq: ${{ "{:,.0f}".format(coin.liquidity) }} | 📊 Vol: ${{ "{:,.0f}".format(coin.volume) }}</div>
                     <div class="ca">CA: {{ coin.address }}</div>
-                    <a href="{{ coin.url }}" target="_blank" class="btn">Buka Grafik DexScreener &rarr;</a>
+                    
+                    <!-- Embedded Live Chart dari DexScreener -->
+                    <div class="chart-container">
+                        <iframe src="https://dexscreener.com/solana/{{ coin.address }}?embed=1&theme=dark&trades=0&info=0"></iframe>
+                    </div>
+
+                    <a href="{{ coin.url }}" target="_blank" class="btn">Buka Full Chart di DexScreener &rarr;</a>
                 </div>
                 {% endfor %}
             {% else %}
@@ -159,7 +179,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             {% endif %}
         </div>
     </div>
-    <script>setTimeout(() => { location.reload(); }, 15000);</script>
+    <script>setTimeout(() => { location.reload(); }, 20000);</script>
 </body>
 </html>"""
 
