@@ -69,7 +69,7 @@ def scan_loop():
                         if liquidity < 500:
                             continue
                             
-                        url_dex = pair.get("url", f"https://dexscreener.com/solana/{ca}")
+                        url_dex = pair.get("url", "https://dexscreener.com/solana/" + ca)
                         
                         coin_info = {
                             "name": name,
@@ -85,6 +85,33 @@ def scan_loop():
                         if len(detected_coins) > 50:
                             detected_coins.pop()
                             
-                        msg = (
-                            f"🔥 *TRENDING MEME COIN SOLANA* 🔥\n\n"
-                            f"🪙 *
+                        msg = "🔥 *TRENDING MEME COIN SOLANA* 🔥\n\n" \
+                              "🪙 *Nama:* " + name + " (" + symbol + ")\n" \
+                              "💧 *Likuiditas:* $" + f"{liquidity:,.0f}" + "\n" \
+                              "📊 *Volume (24j):* $" + f"{h24_volume:,.0f}" + "\n" \
+                              "📋 `CA: " + ca + "`\n\n" \
+                              "[Cek di DexScreener](" + url_dex + ")"
+                              
+                        send_telegram_alert(msg)
+                        sent_tokens.add(ca)
+                        time.sleep(1)
+                        
+        except Exception as e:
+            print(f"Error saat scanning: {e}")
+        
+        time.sleep(30)
+
+threading.Thread(target=scan_loop, daemon=True).start()
+
+HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALFIN ANALYTICS - Trending Scanner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #07090e;
+            --card-bg: #111827;
+            --border-color: #
