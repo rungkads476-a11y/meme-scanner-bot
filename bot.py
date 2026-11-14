@@ -56,7 +56,6 @@ def scan_loop():
                     liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
                     h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
                     
-                    # Filter Utama: Likuiditas Minimal diturunkan ke $500
                     if liquidity < 500:
                         continue
                         
@@ -222,4 +221,21 @@ HTML_TEMPLATE = """
             padding: 8px 12px;
             border-radius: 8px;
         }
-        .
+        .metric-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .metric-value {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #34d399;
+            margin-top: 2px;
+        }
+        .ca-box {
+            background: #0b0f19;
+            border: 1px solid #1a2234;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-family: monospace;
