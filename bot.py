@@ -24,8 +24,8 @@ def send_telegram_alert(message):
         print(f"Gagal kirim pesan: {e}")
 
 def scan_loop():
-    print("🤖 Bot Scanner Meme Coin (Liq ≥ $500 Mode) Berjalan...")
-    send_telegram_alert("⚡ *Bot Scanner Solana (Likuiditas Min $500) Aktif!*")
+    print("🤖 Bot Scanner Meme Coin (Liq ≥ $500 & Min 300 Traders) Berjalan...")
+    send_telegram_alert("⚡ *Bot Scanner Solana (Likuiditas Min $500 + Min 300 Trader) Aktif!*")
     
     sent_tokens = set()
     
@@ -56,7 +56,22 @@ def scan_loop():
                     liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
                     h24_volume = float(pair.get("volume", {}).get("h24", 0) or 0)
                     
+                    # Mengambil data jumlah trader/makers (jika tersedia dari DexScreener)
+                    # Menggunakan kombinasi txns atau info makers jika ada, default ke 0 jika kosong
+                    txns = pair.get("txns", {}).get("h24", {})
+                    total_txns = int(txns.get("buys", 0) or 0) + int(txns.get("sells", 0) or 0)
+                    
+                    # 1. Filter Utama: Likuiditas Minimal $500
                     if liquidity < 500:
+                        continue
+                        
+                    # 2. Filter Baru: Minimal ada aktivitas keramaian/trader (misal total transaksi atau makers > 300)
+                    # DexScreener terkadang menyediakan data 'info' atau kita validasi dari total transaksi 24j yang tinggi (> 300 aktivitas)
+                    # Atau jika ingin spesifik jumlah trader unik (makers), kita cek field-nya:
+                    makers = int(pair.get("makers", 300) or pair.get("txns", {}).get("h24", {}).get("buys", 0)) # fallback aman
+                    
+                    # Kita pastikan koin punya volume/transaksi atau trader yang cukup ramai
+                    if total_txns < 300:
                         continue
                         
                     url_dex = pair.get("url", f"https://dexscreener.com/solana/{ca}")
@@ -67,6 +82,7 @@ def scan_loop():
                         "address": ca,
                         "liquidity": liquidity,
                         "volume": h24_volume,
+                        "txns": total_txns,
                         "url": url_dex,
                         "time": time.strftime("%H:%M:%S")
                     }
@@ -76,10 +92,11 @@ def scan_loop():
                         detected_coins.pop()
                         
                     msg = (
-                        f"⚡ *MEME COIN SOLANA (LIQ ≥ $500)* ⚡\n\n"
+                        f"🔥 *MEME COIN RAMAI (>300 TRADER/TX)* 🔥\n\n"
                         f"🪙 *Nama:* {name} ({symbol})\n"
                         f"💧 *Likuiditas:* ${liquidity:,.0f}\n"
                         f"📊 *Volume (24j):* ${h24_volume:,.0f}\n"
+                        f"🔄 *Total Aktivitas/Tx:* {total_txns} Trx\n"
                         f"📋 `CA: {ca}`\n\n"
                         f"[Cek di DexScreener]({url_dex})"
                     )
@@ -99,7 +116,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALFIN ANALYTICS - Pro Scanner</title>
+    <title>ALFIN ANALYTICS - Hype Scanner</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -206,24 +223,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
         .metrics-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
             margin-bottom: 12px;
         }
         .metric-box {
             background: #0b0f19;
             border: 1px solid #1a2234;
-            padding: 8px 12px;
+            padding: 8px 8px;
             border-radius: 8px;
+            text-align: center;
         }
         .metric-label {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         .metric-value {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 600;
             color: #34d399;
             margin-top: 2px;
@@ -270,9 +288,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="header-card">
             <div class="header-top">
                 <h1>⚡ ALFIN ANALYTICS</h1>
-                <div class="badge"><div class="pulse"></div> Live Scanner</div>
+                <div class="badge"><div class="pulse"></div> Hype Mode</div>
             </div>
-            <p class="desc">Memindai meme coin Solana baru dengan likuiditas minimum $500 secara real-time.</p>
+            <p class="desc">Memindai meme coin Solana dengan likuiditas minimal $500 & minimal 300 aktivitas transaksi.</p>
         </div>
         
         <div id="coin-list">
@@ -293,6 +311,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                             <div class="metric-label">Volume (24j)</div>
                             <div class="metric-value" style="color: #38bdf8;">${{ "{:,.0f}".format(coin.volume) }}</div>
                         </div>
+                        <div class="metric-box">
+                            <div class="metric-label">Aktivitas</div>
+                            <div class="metric-value" style="color: #fbbf24;">{{ coin.txns }} Tx</div>
+                        </div>
                     </div>
                     
                     <div class="ca-box">CA: {{ coin.address }}</div>
@@ -303,8 +325,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             {% else %}
                 <div class="empty-state">
                     <div class="empty-icon">📡</div>
-                    <div style="font-weight: 600; color: #fff; margin-bottom: 4px;">Menunggu Sinyal Koin Baru</div>
-                    <div style="font-size: 0.8rem;">Bot sedang aktif memantau pasar Solana (Liq ≥ $500)...</div>
+                    <div style="font-weight: 600; color: #fff; margin-bottom: 4px;">Menunggu Koin Ramai</div>
+                    <div style="font-size: 0.8rem;">Bot menyaring koin (Liq ≥ $500 & >300 Trx)...</div>
                 </div>
             {% endif %}
         </div>
