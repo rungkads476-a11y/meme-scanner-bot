@@ -12,7 +12,7 @@ TELEGRAM_CHAT_ID = "5067711859"
 detected_coins = []
 
 def send_telegram_alert(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    url = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
@@ -21,7 +21,7 @@ def send_telegram_alert(message):
     try:
         requests.post(url, json=payload)
     except Exception as e:
-        print(f"Gagal kirim pesan: {e}")
+        print("Gagal kirim pesan:", e)
 
 def scan_loop():
     print("🤖 Bot Scanner Meme Coin (Trending Solana Mode) Berjalan...")
@@ -45,7 +45,7 @@ def scan_loop():
                     if not ca or ca in sent_tokens:
                         continue
                         
-                    detail_url = f"https://api.dexscreener.com/latest/dex/tokens/{ca}"
+                    detail_url = "https://api.dexscreener.com/latest/dex/tokens/" + ca
                     detail_res = requests.get(detail_url, timeout=5)
                     
                     if detail_res.status_code == 200:
@@ -88,30 +88,4 @@ def scan_loop():
                         msg = "🔥 *TRENDING MEME COIN SOLANA* 🔥\n\n" \
                               "🪙 *Nama:* " + name + " (" + symbol + ")\n" \
                               "💧 *Likuiditas:* $" + f"{liquidity:,.0f}" + "\n" \
-                              "📊 *Volume (24j):* $" + f"{h24_volume:,.0f}" + "\n" \
-                              "📋 `CA: " + ca + "`\n\n" \
-                              "[Cek di DexScreener](" + url_dex + ")"
-                              
-                        send_telegram_alert(msg)
-                        sent_tokens.add(ca)
-                        time.sleep(1)
-                        
-        except Exception as e:
-            print(f"Error saat scanning: {e}")
-        
-        time.sleep(30)
-
-threading.Thread(target=scan_loop, daemon=True).start()
-
-HTML_TEMPLATE = """<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALFIN ANALYTICS - Trending Scanner</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-color: #07090e;
-            --card-bg: #111827;
-            --border-color: #
+                              "📊 *Volume (24j):* $" + f"{h24_volume:,.0f}" + "\
